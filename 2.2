@@ -1,0 +1,30 @@
+#include <iostream>
+using namespace std;
+void sort(int* a, int n) {
+    int lowkey;
+    int lowindex;
+    int i, j;
+    for (i = 0; i < n - 1; i++) {
+        lowindex = i;
+        lowkey = a[i];
+        for (int j = i + 1; j < n; j++) {
+            if (a[j] > lowkey) {
+                lowkey = a[i];
+                lowindex = j;
+            }
+        }
+        swap(a[i], a[lowindex]);
+    }
+}
+int main()
+{
+    int n;
+    cin >> n;
+    int* a = new int[n];
+    for (int i=0; i<n; i++)
+        cin >> a[i];
+    sort(a, n);
+    for (int i=0; i < n; i++)
+        cout << a[i] << " ";
+    return 0;
+}
