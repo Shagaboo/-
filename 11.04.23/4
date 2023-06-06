@@ -1,0 +1,100 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+class rectan {
+	double  dl, shir, x_lv, y_lv, x_pv, y_pv, x_ln, y_ln, x_pn, y_pn;
+public:
+	rectan(double dl, double shir)
+	{
+		setparams(0, 0, dl, shir);
+	}
+	rectan(double x_lv, double y_lv, double x_pn, double y_pn)
+	{
+		setparams(x_lv, y_lv, x_pn, y_pn);
+	}
+	rectan(double x_lv, double y_lv, double dl, double shir)
+	{
+		setparams(x_lv, y_lv, dl, shir);
+	}
+
+	bool setdl(double dl)
+	{
+		if (dl > 0)
+		{
+			this->dl = dl;
+			return true;
+		}
+		else return false;
+	}
+	bool setshir(double shir)
+	{
+		if (shir > 0)
+		{
+			this->shir = shir;
+			return true;
+		}
+		else return false;
+	}
+	bool set_tochka(double x_lv, double y_lv, double x_pn, double y_pn)
+	{
+		this->x_lv = x_lv;
+		this->y_lv = y_lv;
+		this->x_pn = x_pn;
+		this->y_pn = y_pn;
+		return true;
+	}
+
+	bool setparams(double x_lv, double y_lv, double x_pn, double y_pn)
+	{
+		set_tochka(x_lv, y_lv, x_pn, y_pn);
+		return true;
+	}
+	bool setparams(double x_lv, double y_lv, double dl, double shir)
+	{
+		set_tochka(x_lv, y_lv, 0, 0);
+		setdl(dl);
+		setshir(shir);
+		return true;
+	}
+
+	bool dlina(double x_lv, double y_lv, double x_pn, double y_pn)
+	{
+		this->dl = abs(x_lv - x_pn);
+		cout << dl << endl;
+		return true;
+	}
+	bool shirina(double x_lv, double y_lv, double x_pn, double y_pn)
+	{
+		this->shir = abs(y_lv - y_pn);
+		cout << shir << endl;
+		return true;
+	}
+	bool tochka(double x_lv, double y_lv, double dl, double shir)
+	{
+		this->x_ln = x_lv;
+		this->y_lv = y_lv - shir;
+		this->x_pv = x_lv + dl;
+		this->y_pv = y_lv;
+		this->x_pn = x_lv + dl;
+		this->y_pn = y_lv - shir;
+		cout << x_lv << ' ' << y_lv << ' ' << ' ' << x_ln << ' ' << y_ln << ' ' << x_pv << ' ' << y_pv << x_pn << ' ' << y_pn;
+	}
+	void swap(double dl, double shir)
+	{
+		this->dl = dl;
+		this->shir = shir;
+	}
+	void swap_tochka(double x_lv, double y_lv)
+	{
+		this->x_lv = x_lv;
+		this->y_lv = y_ln;
+		this->x_ln = x_lv;
+		this->y_lv = y_lv - shir;
+		this->x_pv = x_lv + dl;
+		this->y_pv = y_lv;
+		this->x_pn = x_lv + dl;
+		this->y_pn = y_lv - shir;
+	}
+};
+int main(){}
