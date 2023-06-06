@@ -1,0 +1,12 @@
+void duplicateEven()
+{
+    for (Item* t = first; t != nullptr; t = t->next)
+    {
+        if (t->inf % 2 == 0)
+        {
+            Item *newItem = new Item(t->inf, t->next);
+            t->next = newItem;
+            t = t->next; // переходим на следующий элемент, чтобы пропустить только что добавленный элемент
+        }
+    }
+}
