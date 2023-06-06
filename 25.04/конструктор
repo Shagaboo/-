@@ -1,0 +1,62 @@
+#include <iostream>
+
+using namespace std;
+
+template <typename T>
+class List
+{
+	struct Item
+	{
+		T inf;
+		Item* next;
+		Item(T x, Item* ref = nullptr) : inf(x), next(ref) {}
+	} *first = nullptr, *last = nullptr;
+
+public:
+    List(const List &other){
+        this->add(other.first->inf);
+        Item* t = other.first;
+        t = t -> next;
+        while(t != nullptr){
+            this->add(t -> inf);
+            t = t -> next;
+        }
+    }
+
+	void add(T x)
+	{
+		Item *item = new Item(x);
+		if (last != nullptr)
+			last->next = item;
+		last = item;
+		if (first == nullptr)
+			first = last;
+	}
+
+	void print()
+	{
+		for (Item* t = first; t != nullptr; t = t->next)
+			cout << t->inf << " ";
+		cout << endl;
+	}
+
+	void duplicateEven()
+	{
+		if (first == nullptr)
+            return;
+        
+        for (Item* t = first; t != nullptr; t = t->next)
+        {
+            if (t->inf % 2 == 0)
+            {
+                Item* newItem = new Item(t->inf, t->next); 
+                t->next = newItem; 
+                if (t == last)
+                    last = newItem;
+                t = t->next; 
+            }
+        }
+	}
+	
+	
+};
