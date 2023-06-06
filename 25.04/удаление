@@ -1,0 +1,17 @@
+void pop_back(){
+    if (first == nullptr) // список пуст - удалять нечего
+      return;
+    if (first == last) // список из 1 эл-та
+    {
+      delete first;
+      first = nullptr;
+      last = nullptr;
+      return;
+    }
+    Item* iter = first;
+    while (iter->next != last) // идем до предпоследнего 
+      iter = iter->next;
+    delete last; //удаляем последний
+    last = iter; //последний становится предпоследний
+    last->next = nullptr; //указатель на следующий эл-т после последнего приравниваем к nullptr
+    }
