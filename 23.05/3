@@ -1,0 +1,71 @@
+Переставить все простые числа в начало а) вектора б) списка. Вручную и алгоритмом.
+а) алгоритмом
+#include <iostream>
+#include <vector>
+#include <list>
+#include <algorithm>
+using namespace std;
+
+bool isPrime(int num) {
+    if (num < 2) {
+        return false;
+    }
+    for (int i = 2; i <= num / 2; i++) {
+        if (num % i == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int main() {
+    //А
+    vector<int> numbers = { 4, 7, 12, 23, 8, 17, 3, 5 };
+    vector<int> primes;
+    for (int i = 0; i < numbers.size(); i++) {
+        if (isPrime(numbers[i])) {
+            primes.push_back(numbers[i]);
+            numbers.erase(numbers.begin() + i);
+            i--;
+        }
+    }
+    cout << "rukami vector\n";
+    primes.insert(primes.end(), numbers.begin(), numbers.end());
+    for (int i = 0; i < primes.size(); i++) {
+        cout << primes[i] << " ";
+    }
+    cout << endl;
+    cout << "algoritm\n";
+    vector<int> numbers2 = { 4, 7, 12, 23, 8, 17, 3, 5 };
+    auto it = partition(numbers2.begin(), numbers2.end(), isPrime);
+    for (auto x : numbers2)
+        cout << x << " ";
+    cout << endl << endl;
+
+    cout << "rukami list\n";
+    list<int>l = { 4, 7, 12, 23, 8, 17, 3, 5 };
+    list <int> tmp_l;
+    auto itl = l.begin();
+    while (itl != l.end()) {
+        if (isPrime(*itl)) {
+            tmp_l.push_back(*itl);
+            itl = l.erase(itl);
+        }
+        else {
+            ++itl;
+        }
+    }
+    for (auto it = l.begin(); it != l.end(); it++)
+        tmp_l.push_back(*it);
+    
+    for (auto x : tmp_l)
+        cout << x << " ";
+    cout << endl;
+    cout << "algoritm\n";
+    list <int> l2{ 4, 7, 12, 23, 8, 17, 3, 5 };
+    auto it2 = partition(l2.begin(), l2.end(), isPrime);
+    for (auto x : l2)
+        cout << x << " ";
+    cout << endl;
+    return 0;
+}
