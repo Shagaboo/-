@@ -1,0 +1,229 @@
+import requests
+from bs4 import BeautifulSoup
+import telebot
+from telebot import types
+import mysql.connector
+from mysql.connector import Error
+import schedule
+import time
+import threading
+
+def create_database_and_table():
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            port=3306,
+            user="root",
+            password="Fkbyf-2004"
+        )
+        cursor = connection.cursor()
+        cursor.execute("CREATE DATABASE IF NOT EXISTS database_name")
+        cursor.execute("USE database_name")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS laptops (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                price DECIMAL(10, 2) NOT NULL,
+                url VARCHAR(255) NOT NULL,
+                image_url VARCHAR(255)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS smartphones (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                price DECIMAL(10, 2) NOT NULL,
+                url VARCHAR(255) NOT NULL,
+                image_url VARCHAR(255)
+            )
+        """)
+        print("Database and tables created successfully")
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    finally:
+        if connection:
+            connection.close()
+
+# Функция для подключения к базе данных MySQL
+def create_connection():
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            port=3306,
+            user="root",
+            password="Fkbyf-2004",
+            database="database_name"
+        )
+        print("Connection to MySQL DB successful")
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    return connection
+
+# Функция для добавления товара в базу данных
+def add_product(table, name, price, url, image_url):
+    connection = create_connection()
+    cursor = connection.cursor()
+    price = float(price.replace(' ', '').replace(',', '.').replace('₽', ''))
+    # Проверяем, существует ли уже товар с таким же названием и URL-адресом
+    query = f"SELECT * FROM {table} WHERE name='{name}' AND url='{url}'"
+    cursor.execute(query)
+    result = cursor.fetchall()
+    if result:
+        # Если товар существует, обновляем цену
+        product_id = result[0][0]
+        query = f"UPDATE {table} SET price='{price}' WHERE id='{product_id}'"
+        cursor.execute(query)
+        connection.commit()
+        print(f"Product price updated in MySQL DB: {name}, {price}, {url}, {image_url}")
+    else:
+        # Если товара не существует, добавляем новый товар
+        query = f"INSERT INTO {table} (name, price, url, image_url) VALUES ('{name}', '{price}', '{url}', '{image_url}')"
+        cursor.execute(query)
+        connection.commit()
+        print(f"Product added to MySQL DB: {name}, {price}, {url}, {image_url}")
+    cursor.close()
+    connection.close()
+
+# Функция для получения всех товаров из таблицы
+def get_all_products(table):
+    connection = create_connection()
+    cursor = connection.cursor()
+    query = f"SELECT * FROM {table}"
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return result
+
+# Функция для обновления цены товара в базе данных
+def update_price(table, id, new_price):
+    connection = create_connection()
+    cursor = connection.cursor()
+    query = f"UPDATE {table} SET price = '{new_price}' WHERE id = '{id}'"
+    cursor.execute(query)
+    connection.commit()
+    print("Price updated in MySQL DB")
+    cursor.close()
+    connection.close()
+
+# Функция для отправки уведомлений о скидках
+def send_discount_notifications():
+    for table in ['laptops', 'smartphones']:
+        products = get_all_products(table)
+        for product in products:
+            id, name, old_price, url, image_url = product
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, "html.parser")
+            new_price_str = soup.find("span", class_="price lrg").get_text(strip=True)
+            new_price = float(new_price_str.replace(' ', '').replace(',', '.').replace('₽', ''))
+            print(f"Processed product: {name}, {old_price}₽, {new_price}₽")
+            if new_price < old_price:
+                bot.send_message(chat_id=7062564041, text=f"Скидка на товар '{name}'\nСтарая цена: {old_price}₽\nНовая цена: {new_price}₽\n{url}")
+                update_price(table, id, new_price)
+
+# Функция для получения новой цены товара из базы данных
+def get_new_price(table, product_name):
+    connection = create_connection()
+    cursor = connection.cursor()
+    query = f"SELECT price FROM {table} WHERE name = '{product_name}'"
+    cursor.execute(query)
+    new_price = cursor.fetchone()[0]
+    cursor.close()
+    connection.close()
+    return new_price
+
+def send_notification_on_price_reduction(product_name, old_price, new_price):
+    print(f"Price reduction for product '{product_name}': {old_price} -> {new_price}")
+    bot.send_message(chat_id=7062564041, text=f"Price reduction for product '{product_name}': {old_price} -> {new_price}")
+
+# Функция для проверки изменения цены
+def check_price_change():
+    for table in ['laptops']:
+        products = get_all_products(table)
+        for product in products:
+            id, name, old_price, url, image_url = product
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, "html.parser")
+            new_price_str = soup.find("span", class_="price lrg").get_text(strip=True)
+            new_price = float(new_price_str.replace(' ', '').replace(',', '.').replace('₽', ''))
+            if new_price < old_price:
+                send_notification_on_price_reduction(name, old_price, new_price)
+                update_price(table, id, new_price)
+
+bot = telebot.TeleBot("7062564041:AAHUeeIpaNlT_RPi83D34rBDLYmxdF7XVJ4")
+
+@bot.message_handler(commands=['start'])
+def start(message: types.Message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard1 = types.KeyboardButton(text="Ноутбуки")
+    keyboard2 = types.KeyboardButton(text="Смартфоны")
+    keyboard3 = types.KeyboardButton(text="Геймпады")
+    markup.add(keyboard1,keyboard2,keyboard3)
+    bot.send_message(message.chat.id, """Добро пожаловать в ShagaParser! Я бот, который сэкономит вам деньги""", reply_markup=markup)
+
+@bot.message_handler(content_types=["text"])
+def parser(message: types.Message):
+    all_products = []
+    text = message.text
+    if text.lower() == "ноутбуки":
+        url = "https://www.e-catalog.org/list/298/"
+        url_product = "https://www.e-catalog.org"
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text,"html.parser")
+        section = soup.find_all("div", class_="page-result")
+        for products in section:
+            product = products.find_all("div", class_="row mt-3 product")
+            for item in product:
+                product_name = item.find("div",class_= "card-body").get_text(strip=True)
+                price  = item.find("span",class_="price lrg").get_text(strip=True)
+                product_link = item.find("a", class_="goto").get("href")
+                img_tag = item.find("img")
+                img_url = img_tag.get("src") if img_tag else None
+                product_info = f"{product_name}\nЦена: {price}\nСсылка: {url_product + product_link}"
+                add_product('laptops', product_name, price, url_product + product_link, img_url)
+                if img_url:
+                    bot.send_photo(message.chat.id, img_url, caption=product_info)
+                else:
+                    bot.send_message(message.chat.id, product_info)
+        
+    if text.lower() == "смартфоны":
+        url = "https://www.e-catalog.org/list/122/?order=date-desc"
+        url_product = "https://www.e-catalog.org"
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text,"html.parser")
+        section = soup.find_all("div", class_="page-result")
+        for products in section:
+            product = products.find_all("div", class_="row mt-3 product")
+            for item in product:
+                product_name = item.find("div",class_= "card-body").get_text(strip=True)
+                price  = item.find("span",class_="price lrg").get_text(strip=True)
+                product_link = item.find("a", class_="goto").get("href")
+                img_tag = item.find("img")
+                img_url = img_tag.get("src") if img_tag else None
+                product_info = f"{product_name}\nЦена: {price}\nСсылка: {url_product + product_link}"
+                add_product('smartphones', product_name, price, url_product + product_link, img_url)
+                if img_url:
+                    bot.send_photo(message.chat.id, img_url, caption=product_info)
+                else:
+                    bot.send_message(message.chat.id, product_info)
+                    
+# Создание базы данных и таблиц
+create_database_and_table()
+
+def bot_polling():
+    bot.polling(non_stop=True)
+
+def start_bot():
+    threading.Thread(target=bot_polling).start()
+start_bot()
+
+def check_price_change_periodically():
+    check_price_change()
+
+schedule.every(30).seconds.do(check_price_change_periodically)
+
+while True:
+    schedule.run_pending()
+    time.sleep(1)
