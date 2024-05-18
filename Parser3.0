@@ -1,0 +1,223 @@
+import requests
+from bs4 import BeautifulSoup
+import telebot
+from telebot import types
+import mysql.connector
+from mysql.connector import Error
+import schedule
+import time
+import threading
+
+def create_database_and_table():
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            port=3306,
+            user="root",
+            password="Fkbyf-2004"
+        )
+        cursor = connection.cursor()
+        cursor.execute("CREATE DATABASE IF NOT EXISTS database_name")
+        cursor.execute("USE database_name")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS laptops (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                price DECIMAL(10, 2) NOT NULL,
+                url VARCHAR(255) NOT NULL,
+                image_url VARCHAR(255)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS smartphones (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                price DECIMAL(10, 2) NOT NULL,
+                url VARCHAR(255) NOT NULL,
+                image_url VARCHAR(255)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS price_changes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                product_id INT NOT NULL,
+                old_price DECIMAL(10, 2) NOT NULL,
+                new_price DECIMAL(10, 2) NOT NULL,
+                product_name VARCHAR(255) NOT NULL,
+                table_name VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        print("Database and tables created successfully")
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    finally:
+        if connection:
+            connection.close()
+
+def create_connection():
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            port=3306,
+            user="root",
+            password="Fkbyf-2004",
+            database="database_name"
+        )
+        print("Connection to MySQL DB successful")
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    return connection
+
+def add_product(table, name, price, url, image_url):
+    connection = create_connection()
+    if connection is None:
+        print("Failed to connect to the database")
+        return
+
+    try:
+        cursor = connection.cursor()
+        price = float(price.replace(' ', '').replace(',', '.').replace('₽', ''))
+        query = f"SELECT * FROM {table} WHERE name=%s AND url=%s"
+        cursor.execute(query, (name, url))
+        result = cursor.fetchall()
+        if result:
+            product_id = result[0][0]
+            query = f"UPDATE {table} SET price=%s WHERE id=%s"
+            cursor.execute(query, (price, product_id))
+            connection.commit()
+            print(f"Product price updated in MySQL DB: {name}, {price}, {url}, {image_url}")
+        else:
+            query = f"INSERT INTO {table} (name, price, url, image_url) VALUES (%s, %s, %s, %s)"
+            cursor.execute(query, (name, price, url, image_url))
+            connection.commit()
+            print(f"Product added to MySQL DB: {name}, {price}, {url}, {image_url}")
+    except Error as e:
+        print(f"Error: '{e}' occurred while adding/updating the product")
+    finally:
+        cursor.close()
+        connection.close()
+
+def get_all_products(table):
+    connection = create_connection()
+    if connection is None:
+        print("Failed to connect to the database")
+        return []
+
+    cursor = connection.cursor()
+    query = f"SELECT * FROM {table}"
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return result 
+
+def update_price(table, id, new_price):
+    connection = create_connection()
+    if connection is None:
+        print("Failed to connect to the database")
+        return
+
+    cursor = connection.cursor()
+    query = f"UPDATE {table} SET price = %s WHERE id = %s"
+    cursor.execute(query, (new_price, id))
+    connection.commit()
+    print("Price updated in MySQL DB")
+    cursor.close()
+    connection.close()
+
+bot = telebot.TeleBot("7062564041:AAHUeeIpaNlT_RPi83D34rBDLYmxdF7XVJ4")
+
+@bot.message_handler(commands=['start'])
+def start(message: types.Message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard1 = types.KeyboardButton(text="Ноутбуки")
+    keyboard2 = types.KeyboardButton(text="Смартфоны")
+    markup.add(keyboard1,keyboard2)
+    bot.send_message(message.chat.id, """Добро пожаловать в ShagaParser! Я бот, который сэкономит вам деньги""", reply_markup=markup)
+
+@bot.message_handler(content_types=["text"])
+def parser(message: types.Message):
+    text = message.text
+    if text.lower() == "ноутбуки":
+        url = "https://www.e-catalog.org/list/298/"
+        url_product = "https://www.e-catalog.org"
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
+        section = soup.find_all("div", class_="page-result")
+        for products in section:
+            product = products.find_all("div", class_="row mt-3 product")
+            for item in product:
+                product_name = item.find("div", class_= "card-body").get_text(strip=True)
+                price  = item.find("span", class_="price lrg").get_text(strip=True)
+                product_link = item.find("a", class_="goto").get("href")
+                img_tag = item.find("img")
+                img_url = img_tag.get("src") if img_tag else None
+                product_info = f"{product_name}\nЦена: {price}\nСсылка: {url_product + product_link}"
+                add_product('laptops', product_name, price, url_product + product_link, img_url)
+                if img_url:
+                    bot.send_photo(message.chat.id, img_url, caption=product_info)
+                else:
+                    bot.send_message(message.chat.id, product_info)
+
+    elif text.lower() == "смартфоны":
+        url = "https://www.e-catalog.org/list/122/?order=date-desc"
+        url_product = "https://www.e-catalog.org"
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
+        section = soup.find_all("div", class_="page-result")
+        for products in section:
+            product = products.find_all("div", class_="row mt-3 product")
+            for item in product:
+                product_name = item.find("div", class_= "card-body").get_text(strip=True)
+                price  = item.find("span", class_="price lrg").get_text(strip=True)
+                product_link = item.find("a", class_="goto").get("href")
+                img_tag = item.find("img")
+                img_url = img_tag.get("src") if img_tag else None
+                product_info = f"{product_name}\nЦена: {price}\nСсылка: {url_product + product_link}"
+                add_product('smartphones', product_name, price, url_product + product_link, img_url)
+                if img_url:
+                    bot.send_photo(message.chat.id, img_url, caption=product_info)
+                else:
+                    bot.send_message(message.chat.id, product_info)
+
+def send_notification_on_price_reduction(product_name, old_price, new_price, chat_id, table_name):
+    message = f"Цена на {table_name[:-1]} '{product_name}' изменилась\nСтарая цена: {old_price}₽\nНовая цена: {new_price}₽"
+    bot.send_message(chat_id=chat_id, text=message)
+
+def check_price_changes():
+    connection = create_connection()
+    cursor = connection.cursor()
+    query = "SELECT * FROM price_changes"
+    cursor.execute(query)
+    changes = cursor.fetchall()
+    for change in changes:
+        id, product_id, old_price, new_price, product_name, table_name, created_at = change
+        send_notification_on_price_reduction(product_name, old_price, new_price, 5495483437, table_name)
+        
+        # Удаляем запись из таблицы после отправки уведомления
+        delete_query = f"DELETE FROM price_changes WHERE id = {id}"
+        cursor.execute(delete_query)
+        connection.commit()
+    cursor.close()
+    connection.close()
+
+def bot_polling():
+    bot.polling(non_stop=True)
+
+def start_bot():
+    threading.Thread(target=bot_polling).start()
+
+start_bot()
+
+def check_price_changes_periodically():
+    check_price_changes()
+
+schedule.every(1).minute.do(check_price_changes_periodically)
+
+# Основной цикл программы
+while True:
+    schedule.run_pending()  # Запускаем запланированные задачи
+    time.sleep(1)  # Пауза, чтобы избежать высокой загрузки процессора
